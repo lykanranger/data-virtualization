@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Flight Sales Dashboard</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    .chart {
+      margin: 30px 0;
+    }
+    .centered {
+      text-align: center;
+      margin-bottom: 30px;
+      margin-top: 15rem;
+    }
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Page 1: Upload Screen -->
+  <div id="uploadPage" class="centered">
+    <h2>✈️ Flight Sales Dashboard</h2>
+    <input type="file" id="fileInput" accept=".json" />
+    <p>Select your JSON sales file to generate visualizations.</p>
+  </div>
+
+  <!-- Page 2: Dashboard -->
+  <div id="dashboardPage" class="hidden">
+    <div id="chart1" class="chart"></div>
+    <div id="chart2" class="chart"></div>
+    <div id="chart3" class="chart"></div>
+    <div id="chart4" class="chart"></div>
+    <div id="chart5" class="chart"></div>
+  </div>
+
+  <script>
+    document.getElementById('fileInput').addEventListener('change', function (e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const content = e.target.result;
+        const data = JSON.parse(content);
+
+        // Switch to dashboard page
+        document.getElementById('uploadPage').classList.add('hidden');
+        document.getElementById('dashboardPage').classList.remove('hidden');
+
+        generateDashboard(data);
+      };
+      reader.readAsText(file);
+    });
+
+    function generateDashboard(data) {
+      const prices = data.map(d => +d.price);
+      const daysLeft = data.map(d => +d.days_left);
+      const flightDurations = data.map(d => +d.duration);
+      const flightClasses = data.map(d => d.class);
+
+      let airlineMap = {};
+      data.forEach(d => {
+        if (!airlineMap[d.airline]) airlineMap[d.airline] = [];
+        airlineMap[d.airline].push(+d.price);
+      });
+      const avgAirlinePrices = Object.keys(airlineMap).map(a => airlineMap[a].reduce((s, p) => s + p, 0) / airlineMap[a].length);
+      Plotly.newPlot('chart1', [{
+        x: Object.keys(airlineMap),
+        y: avgAirlinePrices,
+        type: 'bar',
+        marker: { color: 'skyblue' }
+      }], { title: 'Average Ticket Price by Airline' });
+
+      let routeMap = {};
+      data.forEach(d => {
+        const route = `${d.source_city} → ${d.destination_city}`;
+        routeMap[route] = (routeMap[route] || 0) + 1;
+      });
+      Plotly.newPlot('chart2', [{
+        x: Object.keys(routeMap),
+        y: Object.values(routeMap),
+        type: 'bar',
+        marker: { color: 'salmon' }
+      }], { title: 'Number of Flights by Route' });
+
+      Plotly.newPlot('chart3', [{
+        x: daysLeft,
+        y: prices,
+        mode: 'markers',
+        type: 'scatter',
+        marker: { color: 'green' }
+      }], { title: 'Ticket Price vs Days Left' });
+
+      const classes = [...new Set(flightClasses)];
+      const traces = classes.map(cls => ({
+        y: data.filter(d => d.class === cls).map(d => +d.price),
+        name: cls,
+        type: 'box'
+      }));
+      Plotly.newPlot('chart4', traces, { title: 'Price Distribution by Class' });
+
+      Plotly.newPlot('chart5', [{
+        x: flightDurations,
+        y: prices,
+        mode: 'markers',
+        type: 'scatter',
+        marker: { color: 'purple' }
+      }], { title: 'Flight Duration vs Ticket Price' });
+    }
+  </script>
+
+</body>
+</html>
